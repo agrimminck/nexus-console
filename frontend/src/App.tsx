@@ -1316,17 +1316,25 @@ export default function App() {
                 {loading ? "SCANNING_REPOS..." : `ACTIVE_PROGRAMS // ${filteredRepos.length}_REPOS`}
               </span>
               <div className="section-line" />
-              <button
-                className="btn-run"
-                style={{ flexShrink: 0, padding: "4px 10px", fontSize: 9 }}
-                onClick={() => {
-                  playClick();
-                  const allCollapsed = CATEGORY_DEFS.every(c => collapsedCategories.has(c.id));
-                  setCollapsedCategories(allCollapsed ? new Set() : new Set<Category>(["e2e", "integration", "unit"]));
-                }}
-              >
-                {CATEGORY_DEFS.every(c => collapsedCategories.has(c.id)) ? "⊞ ALL" : "⊡ ALL"}
-              </button>
+              {(() => {
+                const visibleCats = CATEGORY_DEFS.filter(c => filteredRepos.some(r => getCategory(r) === c.id));
+                const anyExpanded = visibleCats.some(c => !collapsedCategories.has(c.id));
+                return (
+                  <button
+                    className="btn-run"
+                    style={{ flexShrink: 0, padding: "4px 10px", fontSize: 9 }}
+                    onClick={() => {
+                      playClick();
+                      setCollapsedCategories(anyExpanded
+                        ? new Set<Category>(["e2e", "integration", "unit"])
+                        : new Set<Category>()
+                      );
+                    }}
+                  >
+                    {anyExpanded ? "⊡ ALL" : "⊞ ALL"}
+                  </button>
+                );
+              })()}
               <button
                 className="btn-run"
                 style={{ flexShrink: 0, padding: "4px 12px", fontSize: 9 }}
