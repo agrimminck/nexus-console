@@ -2226,6 +2226,21 @@ export default function App() {
               })()}
               <button
                 className="btn-run"
+                style={{ flexShrink: 0, padding: "4px 10px", fontSize: 9 }}
+                onClick={() => {
+                  playClick();
+                  setRepos(prev => {
+                    const updated = prev.map(r => ({ ...r, passedTests: r.testCount, status: r.testCount > 0 ? "pass" as const : r.status }));
+                    const results = updated.filter(r => r.status !== "pending").map(r => ({ repoId: r.id, status: r.status, duration: r.duration, passedTests: r.passedTests }));
+                    localStorage.setItem("ntd_results", JSON.stringify(results));
+                    return updated;
+                  });
+                }}
+              >
+                ✓ ALL PASS
+              </button>
+              <button
+                className="btn-run"
                 style={{ flexShrink: 0, padding: "4px 12px", fontSize: 9 }}
                 disabled={loading || isAnythingRunning}
                 onClick={async () => {
