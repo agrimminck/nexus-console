@@ -570,8 +570,9 @@ export default function App() {
   // Sidebar mode
   const [sidebarMode, setSidebarMode] = useState<"queue" | "pinned">("queue");
 
-  // Category collapse
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(new Set());
+  // Category collapse — all collapsed by default
+  const ALL_COLLAPSED = new Set<Category>(["e2e", "integration", "unit"]);
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(ALL_COLLAPSED);
   const toggleCategory = (id: Category) => setCollapsedCategories(prev => {
     const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
   });
@@ -629,10 +630,10 @@ export default function App() {
 
   // Terminal expanded
   const [termExpanded, setTermExpanded] = useState(false);
-  const [dockerCollapsed, setDockerCollapsed] = useState(false);
-  const [termCtrlCollapsed, setTermCtrlCollapsed] = useState(false);
-  const [tagsCollapsed, setTagsCollapsed] = useState(false);
-  const [sidebarOptionsCollapsed, setSidebarOptionsCollapsed] = useState(false);
+  const [dockerCollapsed, setDockerCollapsed] = useState(true);
+  const [termCtrlCollapsed, setTermCtrlCollapsed] = useState(true);
+  const [tagsCollapsed, setTagsCollapsed] = useState(true);
+  const [sidebarOptionsCollapsed, setSidebarOptionsCollapsed] = useState(true);
 
   // Toast
   const [toast, setToast] = useState<ResultToast | null>(null);
@@ -718,6 +719,11 @@ export default function App() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  // ── Collapse all categories when filters change ──
+  useEffect(() => {
+    setCollapsedCategories(new Set<Category>(["e2e", "integration", "unit"]));
+  }, [search, ecoFilter, activeTags]);
 
   // ── Persist queue ──
   useEffect(() => {
@@ -1310,6 +1316,17 @@ export default function App() {
                 {loading ? "SCANNING_REPOS..." : `ACTIVE_PROGRAMS // ${filteredRepos.length}_REPOS`}
               </span>
               <div className="section-line" />
+              <button
+                className="btn-run"
+                style={{ flexShrink: 0, padding: "4px 10px", fontSize: 9 }}
+                onClick={() => {
+                  playClick();
+                  const allCollapsed = CATEGORY_DEFS.every(c => collapsedCategories.has(c.id));
+                  setCollapsedCategories(allCollapsed ? new Set() : new Set<Category>(["e2e", "integration", "unit"]));
+                }}
+              >
+                {CATEGORY_DEFS.every(c => collapsedCategories.has(c.id)) ? "⊞ ALL" : "⊡ ALL"}
+              </button>
               <button
                 className="btn-run"
                 style={{ flexShrink: 0, padding: "4px 12px", fontSize: 9 }}
