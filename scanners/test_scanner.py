@@ -58,10 +58,26 @@ def _scan_pytest_files_static(repo_path: Path) -> list[dict]:
         except OSError:
             continue
         tests = []
-        for m in re.finditer(r"^(?:async )?def (test_\w+)", text, re.MULTILINE):
-            name = m.group(1)
-            rel = str(f.relative_to(repo_path))
-            tests.append({"id": f"{rel}::{name}", "name": name, "status": "pending"})
+        current_class = None
+        for line in text.splitlines():
+            cm = re.match(r"^class (Test\w+)", line)
+            if cm:
+                current_class = cm.group(1)
+                continue
+            # Module-level test function
+            mm = re.match(r"^(?:async )?def (test_\w+)", line)
+            if mm:
+                name = mm.group(1)
+                rel = str(f.relative_to(repo_path))
+                tests.append({"id": f"{rel}::{name}", "name": name, "status": "pending"})
+                continue
+            # Class method test
+            if current_class:
+                cm2 = re.match(r"    (?:async )?def (test_\w+)", line)
+                if cm2:
+                    name = f"{current_class}::{cm2.group(1)}"
+                    rel = str(f.relative_to(repo_path))
+                    tests.append({"id": f"{rel}::{name}", "name": name, "status": "pending"})
         if not tests:
             continue
         rel = str(f.relative_to(repo_path))

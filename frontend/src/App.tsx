@@ -628,8 +628,9 @@ export default function App() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // Terminal expanded
-  const [termExpanded, setTermExpanded] = useState(false);
+  // Terminal level: 0=min(220px) 1=mid(45vh) 2=full(100vh)
+  const [termLevel, setTermLevel] = useState(0);
+  const termExpanded = termLevel > 0;
   const [dockerCollapsed, setDockerCollapsed] = useState(true);
   const [termCtrlCollapsed, setTermCtrlCollapsed] = useState(true);
   const [tagsCollapsed, setTagsCollapsed] = useState(true);
@@ -675,13 +676,17 @@ export default function App() {
       });
   }, []);
 
-  // ── Space = toggle terminal fullscreen ──
+  // ── Space = cycle terminal size ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code === "Space" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
         e.preventDefault();
         playClick();
-        setTermExpanded(v => !v);
+        if (e.ctrlKey) {
+          setTermLevel(v => Math.max(0, v - 1));
+        } else {
+          setTermLevel(v => (v + 1) % 3);
+        }
       }
     };
     window.addEventListener("keydown", onKey);
@@ -1488,7 +1493,7 @@ export default function App() {
         {isMobile && (
           <button
             className={`terminal-fab ${termExpanded ? "active" : ""}`}
-            onClick={() => { playClick(); setTermExpanded(v => !v); }}
+            onClick={() => { playClick(); setTermLevel(v => v === 2 ? 0 : 2); }}
             title="Toggle terminal"
           >
             {termExpanded ? "×" : ">_"}
@@ -1498,7 +1503,11 @@ export default function App() {
         {/* Terminal */}
         <div
           className={`terminal-panel ${isMobile && termExpanded ? "mobile-visible" : ""}`}
-          style={termExpanded ? { position: "fixed", inset: 0, zIndex: 100, height: "100vh" } : {}}
+          style={
+            termLevel === 2 ? { position: "fixed", inset: 0, zIndex: 100, height: "100vh" } :
+            termLevel === 1 ? { height: "45vh", flexShrink: 0 } :
+            {}
+          }
         >
           <div className="terminal-header">
             <div className="terminal-title">
@@ -1507,8 +1516,8 @@ export default function App() {
             </div>
             <div className="terminal-controls">
               {!termCtrlCollapsed && <>
-                <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }} title={`${termExpanded ? "Collapse" : "Expand"} terminal — hotkey: SPACE`}>
-                  {termExpanded ? "COLLAPSE" : "EXPAND"}
+                <button className="btn-terminal" onClick={() => { playClick(); setTermLevel(v => v === 0 ? 2 : 0); }} title="SPACE=next size  Ctrl+SPACE=shrink">
+                  {termLevel === 0 ? "EXPAND" : termLevel === 1 ? "MID→FULL" : "COLLAPSE"}
                 </button>
                 <button className="btn-terminal" onClick={() => {
                   playClick();
