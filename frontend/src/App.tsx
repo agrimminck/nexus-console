@@ -629,6 +629,10 @@ export default function App() {
 
   // Terminal expanded
   const [termExpanded, setTermExpanded] = useState(false);
+  const [dockerCollapsed, setDockerCollapsed] = useState(false);
+  const [termCtrlCollapsed, setTermCtrlCollapsed] = useState(false);
+  const [tagsCollapsed, setTagsCollapsed] = useState(false);
+  const [sidebarOptionsCollapsed, setSidebarOptionsCollapsed] = useState(false);
 
   // Toast
   const [toast, setToast] = useState<ResultToast | null>(null);
@@ -1173,55 +1177,68 @@ export default function App() {
               </button>
             </div>
 
-            {/* Workers row */}
-            <div className="workers-row">
-              <span className="workers-label">WORKERS</span>
-              <div className="workers-control">
-                <button className="btn-worker" onClick={() => { playClick(); setWorkers(w => Math.max(1, w - 1)); }} disabled={workers <= 1}>−</button>
-                <span className="workers-value">{workers}</span>
-                <button className="btn-worker" onClick={() => { playClick(); setWorkers(w => Math.min(8, w + 1)); }} disabled={workers >= 8}>+</button>
-              </div>
+            {/* Options toggle */}
+            <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.08)" }}>
+              <span className="workers-label">OPTIONS</span>
+              <button
+                className="fx-toggle-btn"
+                onClick={() => { playClick(); setSidebarOptionsCollapsed(v => !v); }}
+              >
+                {sidebarOptionsCollapsed ? "▶ SHOW" : "▼ HIDE"}
+              </button>
             </div>
-            {/* FX toggles */}
-            {([
-              ["ANIMS", fxEnabled, () => { setFxEnabled(v => { localStorage.setItem("ntd_fx", !v ? "on" : "off"); return !v; }); }],
-              ["MATRIX", matrixEnabled, () => { setMatrixEnabled(v => { localStorage.setItem("ntd_matrix", !v ? "on" : "off"); return !v; }); }],
-              ["CURSOR", cursorFxEnabled, () => { setCursorFxEnabled(v => { localStorage.setItem("ntd_cursorfx", !v ? "on" : "off"); return !v; }); }],
-              ["SOUND", soundEnabled, () => { setSoundEnabled(v => { localStorage.setItem("ntd_sound", !v ? "on" : "off"); return !v; }); }],
-            ] as [string, boolean, () => void][]).map(([label, on, toggle]) => (
-              <div key={label} className="fx-toggle-row">
-                <span className="fx-toggle-label">{label}</span>
-                <button className={`fx-toggle-btn ${on ? "on" : ""}`} onClick={() => { playClickIfEnabled(); toggle(); }}>
-                  {on ? "ON" : "OFF"}
-                </button>
-              </div>
-            ))}
 
-            {/* Toast animation mode */}
-            <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.06)" }}>
-              <span className="workers-label">TOAST_FX</span>
-              <div className="workers-control" style={{ gap: 6 }}>
-                {(["center", "slide"] as ToastMode[]).map(m => (
-                  <button
-                    key={m}
-                    className={`btn-worker ${toastMode === m ? "active-mode" : ""}`}
-                    style={{
-                      width: "auto", padding: "0 6px", fontSize: 8, letterSpacing: "0.15em",
-                      background: toastMode === m ? "rgba(0,240,255,0.15)" : "transparent",
-                      borderColor: toastMode === m ? "var(--tn-cyan)" : "rgba(0,240,255,0.2)",
-                      color: toastMode === m ? "var(--tn-cyan)" : "var(--tn-text-dim)",
-                    }}
-                    onClick={() => {
-                      playClick();
-                      setToastMode(m);
-                      localStorage.setItem("ntd_toast_mode", m);
-                    }}
-                  >
-                    {m.toUpperCase()}
-                  </button>
-                ))}
+            {!sidebarOptionsCollapsed && <>
+              {/* Workers row */}
+              <div className="workers-row">
+                <span className="workers-label">WORKERS</span>
+                <div className="workers-control">
+                  <button className="btn-worker" onClick={() => { playClick(); setWorkers(w => Math.max(1, w - 1)); }} disabled={workers <= 1}>−</button>
+                  <span className="workers-value">{workers}</span>
+                  <button className="btn-worker" onClick={() => { playClick(); setWorkers(w => Math.min(8, w + 1)); }} disabled={workers >= 8}>+</button>
+                </div>
               </div>
-            </div>
+              {/* FX toggles */}
+              {([
+                ["ANIMS", fxEnabled, () => { setFxEnabled(v => { localStorage.setItem("ntd_fx", !v ? "on" : "off"); return !v; }); }],
+                ["MATRIX", matrixEnabled, () => { setMatrixEnabled(v => { localStorage.setItem("ntd_matrix", !v ? "on" : "off"); return !v; }); }],
+                ["CURSOR", cursorFxEnabled, () => { setCursorFxEnabled(v => { localStorage.setItem("ntd_cursorfx", !v ? "on" : "off"); return !v; }); }],
+                ["SOUND", soundEnabled, () => { setSoundEnabled(v => { localStorage.setItem("ntd_sound", !v ? "on" : "off"); return !v; }); }],
+              ] as [string, boolean, () => void][]).map(([label, on, toggle]) => (
+                <div key={label} className="fx-toggle-row">
+                  <span className="fx-toggle-label">{label}</span>
+                  <button className={`fx-toggle-btn ${on ? "on" : ""}`} onClick={() => { playClickIfEnabled(); toggle(); }}>
+                    {on ? "ON" : "OFF"}
+                  </button>
+                </div>
+              ))}
+
+              {/* Toast animation mode */}
+              <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.06)" }}>
+                <span className="workers-label">TOAST_FX</span>
+                <div className="workers-control" style={{ gap: 6 }}>
+                  {(["center", "slide"] as ToastMode[]).map(m => (
+                    <button
+                      key={m}
+                      className={`btn-worker ${toastMode === m ? "active-mode" : ""}`}
+                      style={{
+                        width: "auto", padding: "0 6px", fontSize: 8, letterSpacing: "0.15em",
+                        background: toastMode === m ? "rgba(0,240,255,0.15)" : "transparent",
+                        borderColor: toastMode === m ? "var(--tn-cyan)" : "rgba(0,240,255,0.2)",
+                        color: toastMode === m ? "var(--tn-cyan)" : "var(--tn-text-dim)",
+                      }}
+                      onClick={() => {
+                        playClick();
+                        setToastMode(m);
+                        localStorage.setItem("ntd_toast_mode", m);
+                      }}
+                    >
+                      {m.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>}
           </aside>
 
           {/* Main Panel */}
@@ -1270,7 +1287,16 @@ export default function App() {
                 )}
               </div>
               <div className="tags-row">
-                {allTags.map(t => (
+                <button
+                  className={`tag-chip ${tagsCollapsed ? "" : "active"}`}
+                  style={{ flexShrink: 0 }}
+                  onClick={() => { playClick(); setTagsCollapsed(v => !v); }}
+                  title="Toggle tag filters"
+                >
+                  TAGS {tagsCollapsed ? "▶" : "▼"}
+                  {activeTags.size > 0 && <span className="chip-x" style={{ opacity: 1, color: "var(--tn-orange)" }}>{activeTags.size}</span>}
+                </button>
+                {!tagsCollapsed && allTags.map(t => (
                   <button key={t} className={`tag-chip ${activeTags.has(t) ? "active" : ""}`} onClick={() => toggleTag(t)}>
                     {t}{activeTags.has(t) && <span className="chip-x">×</span>}
                   </button>
@@ -1385,11 +1411,14 @@ export default function App() {
         {/* Terminal */}
         {/* Docker quick buttons */}
         <div className="docker-bar" style={{ flexShrink: 0, padding: "6px 16px", borderTop: "1px solid rgba(0,240,255,0.08)", background: "rgba(0,3,8,0.9)", display: "flex", gap: 8, alignItems: "center" }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 9, color: "var(--tn-text-dim)", letterSpacing: "0.2em" }}>DOCKER:</span>
-          <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "up", "dev"); }}>▶ COMPOSE UP DEV</button>
-          <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "down", "dev"); }}>■ COMPOSE DOWN DEV</button>
-          <button className="btn-terminal" onClick={() => { playClick(); runDocker(WORLDS_COMPOSE, "up", "worlds"); }}>▶ WORLDS UP</button>
-          <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "ps", "dev"); }}>≡ PS</button>
+          <button className="btn-terminal" onClick={() => { playClick(); setDockerCollapsed(v => !v); }} title="Toggle docker buttons">
+            DOCKER {dockerCollapsed ? "▶" : "▼"}
+          </button>
+          {!dockerCollapsed && <>
+            <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "up", "dev"); }}>▶ UP DEV</button>
+            <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "down", "dev"); }}>■ DOWN DEV</button>
+            <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "ps", "dev"); }}>≡ PS</button>
+          </>}
         </div>
 
         {/* Terminal FAB (mobile) */}
@@ -1414,24 +1443,32 @@ export default function App() {
               {isAnythingRunning && <span className="terminal-process">PROCESS ACTIVE</span>}
             </div>
             <div className="terminal-controls">
-              <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }} title={`${termExpanded ? "Collapse" : "Expand"} terminal — hotkey: SPACE`}>
-                {termExpanded ? "⊡ COLLAPSE" : "⊞ EXPAND"}
+              <button className="btn-terminal" onClick={() => { playClick(); setTermCtrlCollapsed(v => !v); }} title="Toggle terminal controls">
+                ⚙ {termCtrlCollapsed ? "▶" : "▼"}
               </button>
-              <button className="btn-terminal" onClick={() => {
-                playClick();
-                setLoading(true);
-                fetch("/api/repos").then(r => r.json()).then((data: Repo[]) => {
-                  setRepos(data);
-                  setAllTags(Array.from(new Set(data.flatMap(r => r.tags ?? []))));
-                  setLoading(false);
-                  appendLine(`> RESCAN COMPLETE — ${data.length} repos`, "pass");
-                });
-              }}>RESCAN</button>
-              <button className="btn-terminal" onClick={() => { playClick(); setTermLines([]); }}>CLEAR</button>
-              <button className="btn-terminal" onClick={() => {
-                playClick();
-                navigator.clipboard.writeText(termLines.map(l => l.text).join("\n"));
-              }}>COPY</button>
+              {!termCtrlCollapsed && <>
+                <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }} title={`${termExpanded ? "Collapse" : "Expand"} terminal — hotkey: SPACE`}>
+                  {termExpanded ? "⊡ COLLAPSE" : "⊞ EXPAND"}
+                </button>
+                <button className="btn-terminal" onClick={() => {
+                  playClick();
+                  setLoading(true);
+                  fetch("/api/repos").then(r => r.json()).then((data: Repo[]) => {
+                    setRepos(data);
+                    setAllTags(prev => {
+                      const fresh = Array.from(new Set(data.flatMap(r => r.tags ?? [])));
+                      return Array.from(new Set([...prev, ...fresh]));
+                    });
+                    setLoading(false);
+                    appendLine(`> RESCAN COMPLETE — ${data.length} repos`, "pass");
+                  });
+                }}>RESCAN</button>
+                <button className="btn-terminal" onClick={() => { playClick(); setTermLines([]); }}>CLEAR</button>
+                <button className="btn-terminal" onClick={() => {
+                  playClick();
+                  navigator.clipboard.writeText(termLines.map(l => l.text).join("\n"));
+                }}>COPY</button>
+              </>}
             </div>
           </div>
           <div className="terminal-output" ref={termRef}>
