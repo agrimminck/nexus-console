@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import MatrixRain from "./MatrixRain";
 import CursorFX from "./CursorFX";
-import { playClick, playRun, playPass, playFail, playPin, playQueue, playTab } from "./sounds";
+import { playClick, playRun, playPass, playFail, playPin, playQueue, playTab, playBoot, playTestComplete } from "./sounds";
 import type {
   Repo, QueueItem, PinnedItem, TerminalLine, Status, Stack,
   TestFile, IndividualTest, RunTarget, ResultToast,
@@ -171,8 +171,8 @@ function StackBadge({ stack }: { stack: Stack }) {
   return <span className={`stack-badge stack-${stack}`}>{stack.toUpperCase()}</span>;
 }
 
-function addRipple(e: React.MouseEvent<HTMLElement>) {
-  playClick();
+function addRipple(e: React.MouseEvent<HTMLElement>, sound = true) {
+  if (sound) playClick();
   const el = e.currentTarget;
   const rect = el.getBoundingClientRect();
   const r = document.createElement("span");
@@ -410,7 +410,7 @@ function RepoCard({
         } as React.CSSProperties} />
 
         <div className="repo-card-actions">
-          <button className="btn-run" onClick={(e) => { addRipple(e); onRun(); }} disabled={isRunning}>
+          <button className="btn-run" onClick={(e) => { addRipple(e, false); onRun(); }} disabled={isRunning}>
             {isRunning ? "◌ RUNNING..." : "▶ RUN_ALL"}
           </button>
           <button className={`btn-pin ${isQueued ? "pinned" : ""}`} onClick={onQueue} title="Add to queue">
@@ -476,7 +476,7 @@ function QueueItemRow({ item, flashClass, isExiting, onRun, onRemove, isRunning 
         <div className="queue-item-repo">{item.repoName}</div>
       </div>
       <div className="queue-actions">
-        <button className="btn-icon" onClick={(e) => { addRipple(e); onRun(); }} disabled={isRunning} title="Run">
+        <button className="btn-icon" onClick={(e) => { addRipple(e, false); onRun(); }} disabled={isRunning} title="Run">
           {isRunning ? "◌" : "▶"}
         </button>
         <button className="btn-icon btn-remove" onClick={onRemove} title="Remove">×</button>
@@ -501,7 +501,7 @@ function PinnedItemRow({ item, onRun, onUnpin, isRunning }: {
         <div className="queue-item-repo">{item.repoName}</div>
       </div>
       <div className="queue-actions">
-        <button className="btn-icon" onClick={(e) => { addRipple(e); onRun(); }} disabled={isRunning} title="Run">
+        <button className="btn-icon" onClick={(e) => { addRipple(e, false); onRun(); }} disabled={isRunning} title="Run">
           {isRunning ? "◌" : "▶"}
         </button>
         <button className="btn-icon btn-remove" onClick={onUnpin} title="Unpin">☆</button>
@@ -622,6 +622,7 @@ export default function App() {
         const stackTags = Array.from(new Set(data.map(r => r.stack)));
         setAllTags([...new Set([...stackTags, ...userTags])]);
         setLoading(false);
+        playBoot();
         appendLine(`> DISCOVERY COMPLETE — ${data.length} REPOS FOUND`, "pass");
         // Restore saved results into repos
         const savedResults: Array<{repoId: string; status: Status; duration?: number}> =
@@ -649,6 +650,23 @@ export default function App() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // ── Auto-reload on build change (mobile-friendly) ──
+  useEffect(() => {
+    let currentV: number | null = null;
+    const check = () => {
+      if (activeRunKeysRef.current.size > 0) return; // never reload mid-run
+      fetch("/api/version")
+        .then(r => r.json())
+        .then(({ v }) => {
+          if (currentV === null) { currentV = v; return; }
+          if (v !== currentV) window.location.reload();
+        })
+        .catch(() => {});
+    };
+    const id = setInterval(check, 15_000);
+    return () => clearInterval(id);
   }, []);
 
   // ── Poll RAM ──
@@ -763,14 +781,14 @@ export default function App() {
   }, []);
 
   // ── Core run function ──
-  const runTarget = useCallback(async (target: RunTarget) => {
+  const runTarget = useCallback(async (target: RunTarget, suppressCompletion = false, suppressStartSound = false): Promise<boolean> => {
     const runKey = `${target.repo_id}|${target.file_id ?? ""}|${target.test_id ?? ""}`;
-    if (activeRunKeysRef.current.has(runKey)) return;
+    if (activeRunKeysRef.current.has(runKey)) return false;
     activeRunKeysRef.current.add(runKey);
     updateActiveRunKeys();
 
     setRepos(prev => prev.map(r => r.id === target.repo_id ? { ...r, status: "running" } : r));
-    playRun();
+    if (!suppressStartSound) playRun();
     appendLine(`> EXECUTING: ${target.label}`, "info");
 
     let exitCode = 1;
@@ -839,7 +857,9 @@ export default function App() {
         p.repoId === target.repo_id ? { ...p, status: ok ? "pass" : "fail" } : p
       ));
 
-      if (ok) playPass(); else playFail();
+      if (!suppressCompletion) {
+        if (ok) playPass(); else playFail();
+      }
       showToast({
         id: crypto.randomUUID(),
         label: target.label,
@@ -853,17 +873,20 @@ export default function App() {
         exitQueueItem(target.queue_item_id, ok ? "pass" : "fail");
       }
     }
+    return exitCode === 0;
   }, [appendLine, updateActiveRunKeys, showToast, exitQueueItem]);
 
   // ── Run queue with N workers ──
   const runQueue = useCallback(async () => {
     const items = [...queueItems];
     if (items.length === 0) return;
+    const isBatch = items.length > 1;
+    playRun();
     const sem = new Semaphore(workers);
-    await Promise.all(items.map(async (item) => {
+    const results = await Promise.all(items.map(async (item) => {
       await sem.acquire();
       try {
-        await runTarget({
+        return await runTarget({
           repo_id: item.repoId,
           stack: item.stack,
           repo_path: item.repoPath,
@@ -871,11 +894,12 @@ export default function App() {
           test_id: item.testId,
           label: item.label,
           queue_item_id: item.id,
-        });
+        }, isBatch, true);
       } finally {
         sem.release();
       }
     }));
+    if (isBatch) playTestComplete(results.every(Boolean));
   }, [queueItems, workers, runTarget]);
 
   // ── Queue management ──
@@ -941,8 +965,8 @@ export default function App() {
       (r.tags ?? []).some(t => activeTags.has(t)) ||
       activeTags.has(r.stack);
     const matchEco = ecoFilter === "all" ||
-      (ecoFilter === "idyllic" && r.name.startsWith("idyllic-")) ||
-      (ecoFilter === "basilisk" && r.name.startsWith("basilisk-"));
+      (ecoFilter === "idyllic" && (r.name.startsWith("idyllic-") || r.id.startsWith("idyllic-"))) ||
+      (ecoFilter === "basilisk" && (r.name.startsWith("basilisk-") || r.id.startsWith("basilisk-")));
     return matchSearch && matchTags && matchEco;
   });
 
@@ -1098,16 +1122,19 @@ export default function App() {
                     await runQueue();
                   } else {
                     // Run all pinned (no exit from pinned)
+                    const isBatch = pinnedItems.length > 1;
+                    playRun();
                     const sem = new Semaphore(workers);
-                    await Promise.all(pinnedItems.map(async item => {
+                    const results = await Promise.all(pinnedItems.map(async item => {
                       await sem.acquire();
                       try {
-                        await runTarget({
+                        return await runTarget({
                           repo_id: item.repoId, stack: item.stack, repo_path: item.repoPath,
                           file_id: item.fileId, test_id: item.testId, label: item.label,
-                        });
+                        }, isBatch, true);
                       } finally { sem.release(); }
                     }));
+                    if (isBatch) playTestComplete(results.every(Boolean));
                   }
                 }}
               >
@@ -1231,12 +1258,15 @@ export default function App() {
                 style={{ flexShrink: 0, padding: "4px 12px", fontSize: 9 }}
                 disabled={loading || isAnythingRunning}
                 onClick={async () => {
+                  const isBatch = filteredRepos.length > 1;
+                  playRun();
                   const sem = new Semaphore(workers);
-                  await Promise.all(filteredRepos.map(async repo => {
+                  const results = await Promise.all(filteredRepos.map(async repo => {
                     await sem.acquire();
-                    try { await runTarget(makeRepoTarget(repo)); }
+                    try { return await runTarget(makeRepoTarget(repo), isBatch, true); }
                     finally { sem.release(); }
                   }));
+                  if (isBatch) playTestComplete(results.every(Boolean));
                 }}
               >
                 ▶ RUN_ALL_{filteredRepos.length}
@@ -1298,8 +1328,8 @@ export default function App() {
               {isAnythingRunning && <span className="terminal-process">PROCESS ACTIVE</span>}
             </div>
             <div className="terminal-controls">
-              <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }}>
-                {termExpanded ? "⊡ COLLAPSE [SPC]" : "⊞ EXPAND [SPC]"}
+              <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }} title={`${termExpanded ? "Collapse" : "Expand"} terminal — hotkey: SPACE`}>
+                {termExpanded ? "⊡ COLLAPSE" : "⊞ EXPAND"}
               </button>
               <button className="btn-terminal" onClick={() => {
                 playClick();

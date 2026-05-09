@@ -14,6 +14,7 @@ Dev: frontend runs on Vite 5174, proxied to here.
 from __future__ import annotations
 
 import asyncio
+import glob as _glob
 import json
 import os
 import subprocess
@@ -73,7 +74,7 @@ def _build_cmd(repo_id: str, file_id: str | None, test_id: str | None, stack: st
     if stack == "jest":
         cmd = ["pnpm", "exec", "jest", "--passWithNoTests", "--forceExit", "--colors"]
         if file_id:
-            cmd += ["--testPathPattern", file_id]
+            cmd += ["--testPathPatterns", file_id]
         if test_id:
             cmd += ["--testNamePattern", test_id]
         return cmd
@@ -139,13 +140,24 @@ async def get_config() -> JSONResponse:
     return JSONResponse(_load_config())
 
 
+@app.get("/api/version")
+async def get_version() -> JSONResponse:
+    index_file = STATIC_DIR / "index.html"
+    mtime = int(index_file.stat().st_mtime) if index_file.exists() else 0
+    return JSONResponse({"v": mtime})
+
+
 @app.get("/api/system")
 async def get_system() -> JSONResponse:
     meminfo: dict[str, int] = {}
     with open("/proc/meminfo") as f:
         for line in f:
-            key, _, value, *_ = line.split()
-            meminfo[key.rstrip(":")] = int(value)
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    meminfo[parts[0].rstrip(":")] = int(parts[1])
+                except ValueError:
+                    pass
 
     kb_total = meminfo["MemTotal"]
     kb_available = meminfo["MemAvailable"]
@@ -162,6 +174,44 @@ async def get_system() -> JSONResponse:
         "ram_used_gb": gb_used,
         "ram_percent": percent,
     })
+
+
+class DockerCmd(BaseModel):
+    compose_file: str  # absolute path to docker-compose yml
+    action: str  # "up" | "down" | "restart" | "ps" | "logs"
+    service: str | None = None
+
+@app.post("/api/docker")
+async def docker_action(body: DockerCmd) -> JSONResponse:
+    run_id = str(uuid.uuid4())
+    cmd = ["docker", "compose", "-f", body.compose_file]
+    if body.action == "up":
+        cmd += ["up", "-d"]
+    elif body.action == "down":
+        cmd += ["down"]
+    elif body.action == "restart":
+        cmd += ["restart"]
+    elif body.action == "ps":
+        cmd += ["ps"]
+    elif body.action == "logs":
+        cmd += ["logs", "--tail=50"]
+    if body.service:
+        cmd.append(body.service)
+    cwd = str(Path(body.compose_file).parent)
+    _runs[run_id] = {"cmd": cmd, "cwd": cwd, "label": f"docker {body.action}", "status": "pending"}
+    return JSONResponse({"run_id": run_id, "cmd": cmd})
+
+@app.get("/api/docker/files")
+async def list_docker_files() -> JSONResponse:
+    """Find docker-compose yml files in known repos."""
+    patterns = [
+        "/home/agrim/github/idyllic/repos/idyllic-infra/docker-compose*.yml",
+        "/home/agrim/github/idyllic/repos/idyllic-infra/docker-compose*.yaml",
+    ]
+    files = []
+    for pat in patterns:
+        files.extend(_glob.glob(pat))
+    return JSONResponse(sorted(set(files)))
 
 
 class ConfigUpdate(BaseModel):

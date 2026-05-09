@@ -1139,15 +1139,18 @@ html, body, #root {
 
 /* ===== Repo card scroll when expanded ===== */
 .repo-card {
-  max-height: 520px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: visible;
 }
 .repo-card-static {
-  position: sticky; top: 0;
   background: var(--tn-bg-card);
   z-index: 2;
   padding-bottom: 8px;
+}
+/* Expanded file list: max 300px, scrolls internally */
+.repo-card > .file-list {
+  max-height: 300px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 /* ===== "Alive" animations — cards, badges, stack labels ===== */
