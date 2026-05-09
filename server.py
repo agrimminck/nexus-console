@@ -215,6 +215,15 @@ async def list_docker_files() -> JSONResponse:
 
 
 RESET_SEED_SCRIPT = REPOS_ROOT / "idyllic-infra" / "scripts" / "reset-and-seed-all-dbs.py"
+GODOT_MMO1_PROJECT = REPOS_ROOT / "idyllic-mmo1-game"
+
+@app.post("/api/open-godot")
+async def open_godot() -> JSONResponse:
+    run_id = str(uuid.uuid4())
+    cmd = ["godot4", "--editor", "--path", str(GODOT_MMO1_PROJECT)]
+    _runs[run_id] = {"cmd": cmd, "cwd": str(GODOT_MMO1_PROJECT), "label": "open godot mmo1", "status": "pending"}
+    return JSONResponse({"run_id": run_id, "cmd": cmd})
+
 
 @app.post("/api/reset-seed")
 async def reset_seed() -> JSONResponse:

@@ -41,17 +41,30 @@ def scan_pytest_files(repo_path: Path) -> list[dict]:
 
 
 def _scan_pytest_files_static(repo_path: Path) -> list[dict]:
-    """Fallback: grep test_*.py files."""
+    """Fallback: find all .py files containing def test_* (any filename)."""
+    SKIP_DIRS = {"__pycache__", ".git", ".venv", "venv", "node_modules"}
     result = []
-    for f in sorted(repo_path.rglob("test_*.py")):
-        rel = str(f.relative_to(repo_path))
-        tests = []
+    candidates: list[Path] = []
+    for f in sorted(repo_path.rglob("*.py")):
+        if any(part in SKIP_DIRS for part in f.parts):
+            continue
+        if f.name == "__init__.py":
+            continue
+        candidates.append(f)
+
+    for f in candidates:
         try:
-            for m in re.finditer(r"^def (test_\w+)", f.read_text("utf-8"), re.MULTILINE):
-                name = m.group(1)
-                tests.append({"id": f"{rel}::{name}", "name": name, "status": "pending"})
+            text = f.read_text("utf-8")
         except OSError:
-            pass
+            continue
+        tests = []
+        for m in re.finditer(r"^(?:async )?def (test_\w+)", text, re.MULTILINE):
+            name = m.group(1)
+            rel = str(f.relative_to(repo_path))
+            tests.append({"id": f"{rel}::{name}", "name": name, "status": "pending"})
+        if not tests:
+            continue
+        rel = str(f.relative_to(repo_path))
         result.append({"id": rel, "path": rel, "testCount": len(tests), "tests": tests, "status": "pending"})
     return result
 

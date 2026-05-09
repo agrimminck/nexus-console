@@ -1444,6 +1444,21 @@ export default function App() {
             <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "down", "dev"); }}>■ DOWN DEV</button>
             <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "ps", "dev"); }}>≡ PS</button>
             <button className="btn-terminal" onClick={() => {
+              playClick();
+              fetch("/api/open-godot", { method: "POST" })
+                .then(r => r.json())
+                .then(({ run_id }) => {
+                  appendLine(`> OPENING GODOT MMO1...`, "info");
+                  const proto = location.protocol === "https:" ? "wss" : "ws";
+                  const ws = new WebSocket(`${proto}://${location.host}/ws/${run_id}`);
+                  ws.onmessage = (e) => {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type === "done") ws.close();
+                  };
+                })
+                .catch(err => appendLine(`> GODOT ERROR: ${err.message}`, "fail"));
+            }}>◈ GODOT MMO1</button>
+            <button className="btn-terminal" onClick={() => {
               playRun();
               fetch("/api/reset-seed", { method: "POST" })
                 .then(r => r.json())
