@@ -1247,7 +1247,7 @@ html, body, #root {
   92%  { transform: translateX(1px); filter: hue-rotate(-20deg); }
   93%  { transform: translateX(0); filter: none; }
 }
-.tn-card:not(:hover) {
+.tn-card:not(:hover):not(.tn-card-running) {
   animation: card-border-breathe 2s ease-in-out infinite alternate,
              card-micro-glitch 13s steps(1, end) infinite;
 }
