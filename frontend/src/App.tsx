@@ -510,6 +510,31 @@ function PinnedItemRow({ item, onRun, onUnpin, isRunning }: {
   );
 }
 
+// ─── Category helpers ─────────────────────────────────────────────────────────
+
+type Category = "e2e" | "integration" | "unit";
+
+const CATEGORY_DEFS: { id: Category; label: string }[] = [
+  { id: "e2e",          label: "E2E" },
+  { id: "integration",  label: "INTEGRATION" },
+  { id: "unit",         label: "UNIT" },
+];
+
+function getCategory(repo: Repo): Category {
+  if (repo.id === "e2e" || repo.name.toLowerCase().includes("e2e")) return "e2e";
+  if (repo.id === "smoke" || repo.stack === "pytest") return "integration";
+  return "unit";
+}
+
+function catColor(repos: Repo[]): "green" | "yellow" | "red" {
+  const done = repos.filter(r => r.status !== "pending" && r.status !== "running");
+  if (done.length === 0) return "yellow";
+  const passing = done.filter(r => r.status === "pass").length;
+  if (passing === done.length) return "green";
+  if (passing === 0) return "red";
+  return "yellow";
+}
+
 // ─── Loading screen ───────────────────────────────────────────────────────────
 
 function LoadingScreen() {
@@ -544,6 +569,12 @@ export default function App() {
 
   // Sidebar mode
   const [sidebarMode, setSidebarMode] = useState<"queue" | "pinned">("queue");
+
+  // Category collapse
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<Category>>(new Set());
+  const toggleCategory = (id: Category) => setCollapsedCategories(prev => {
+    const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n;
+  });
 
   // Queue (persisted)
   const [queueItems, setQueueItems] = useState<QueueItem[]>(() => {
@@ -965,7 +996,7 @@ export default function App() {
       (r.tags ?? []).some(t => activeTags.has(t)) ||
       activeTags.has(r.stack);
     const matchEco = ecoFilter === "all" ||
-      (ecoFilter === "idyllic" && (r.name.startsWith("idyllic-") || r.id.startsWith("idyllic-"))) ||
+      (ecoFilter === "idyllic" && (r.name.startsWith("idyllic-") || r.id.startsWith("idyllic-") || r.id === "smoke" || r.id === "e2e")) ||
       (ecoFilter === "basilisk" && (r.name.startsWith("basilisk-") || r.id.startsWith("basilisk-")));
     return matchSearch && matchTags && matchEco;
   });
@@ -1273,25 +1304,60 @@ export default function App() {
               </button>
             </div>
 
-            <div className="repos-grid" style={{ alignContent: loading ? "center" : "start" }}>
-              {loading ? <LoadingScreen /> : filteredRepos.map(repo => (
-                <RepoCard
-                  key={repo.id}
-                  repo={repo}
-                  activeRunKeys={activeRunKeys}
-                  queueIds={queueIds}
-                  pinnedIds={pinnedIds}
-                  onRun={() => runTarget(makeRepoTarget(repo))}
-                  onRunFile={f => runTarget(makeFileTarget(repo, f))}
-                  onRunTest={(f, t) => runTarget(makeTestTarget(repo, f, t))}
-                  onQueue={() => addToQueue({ type: "repo", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: repo.name, status: repo.status })}
-                  onQueueFile={f => addToQueue({ type: "file", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: f.path.split("/").pop() ?? f.path, status: f.status, fileId: f.path })}
-                  onQueueTest={(f, t) => addToQueue({ type: "test", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: t.name, status: t.status, fileId: f.path, testId: t.name })}
-                  onPin={() => addToPin({ type: "repo", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: repo.name, status: repo.status })}
-                  onPinFile={f => addToPin({ type: "file", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: f.path.split("/").pop() ?? f.path, status: f.status, fileId: f.path })}
-                  onPinTest={(f, t) => addToPin({ type: "test", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: t.name, status: t.status, fileId: f.path, testId: t.name })}
-                />
-              ))}
+            <div className="repos-grid">
+              {loading ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", flex: 1 }}>
+                  <LoadingScreen />
+                </div>
+              ) : CATEGORY_DEFS.map(cat => {
+                const catRepos = filteredRepos.filter(r => getCategory(r) === cat.id);
+                if (catRepos.length === 0) return null;
+                const passing = catRepos.filter(r => r.status === "pass").length;
+                const failing = catRepos.filter(r => r.status === "fail").length;
+                const color = catColor(catRepos);
+                const isCollapsed = collapsedCategories.has(cat.id);
+                return (
+                  <div key={cat.id} className="category-section">
+                    <button
+                      className={`category-header cat-color-${color}`}
+                      onClick={() => { playClick(); toggleCategory(cat.id); }}
+                    >
+                      <Hexagon size={14} stroke="currentColor" />
+                      <span>{cat.label}</span>
+                      <div className="cat-line" />
+                      <span className="cat-badge">{passing}/{catRepos.length} PASS</span>
+                      {failing > 0 && (
+                        <span className="cat-badge" style={{ color: "var(--tn-red)", borderColor: "var(--tn-red)" }}>
+                          {failing} FAIL
+                        </span>
+                      )}
+                      <span className="cat-arrow">{isCollapsed ? "▶" : "▼"}</span>
+                    </button>
+                    {!isCollapsed && (
+                      <div className="category-cards">
+                        {catRepos.map(repo => (
+                          <RepoCard
+                            key={repo.id}
+                            repo={repo}
+                            activeRunKeys={activeRunKeys}
+                            queueIds={queueIds}
+                            pinnedIds={pinnedIds}
+                            onRun={() => runTarget(makeRepoTarget(repo))}
+                            onRunFile={f => runTarget(makeFileTarget(repo, f))}
+                            onRunTest={(f, t) => runTarget(makeTestTarget(repo, f, t))}
+                            onQueue={() => addToQueue({ type: "repo", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: repo.name, status: repo.status })}
+                            onQueueFile={f => addToQueue({ type: "file", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: f.path.split("/").pop() ?? f.path, status: f.status, fileId: f.path })}
+                            onQueueTest={(f, t) => addToQueue({ type: "test", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: t.name, status: t.status, fileId: f.path, testId: t.name })}
+                            onPin={() => addToPin({ type: "repo", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: repo.name, status: repo.status })}
+                            onPinFile={f => addToPin({ type: "file", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: f.path.split("/").pop() ?? f.path, status: f.status, fileId: f.path })}
+                            onPinTest={(f, t) => addToPin({ type: "test", repoId: repo.id, repoName: repo.name, repoPath: repo.path, stack: repo.stack, label: t.name, status: t.status, fileId: f.path, testId: t.name })}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </main>
         </div>
