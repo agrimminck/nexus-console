@@ -180,7 +180,7 @@ html, body, #root {
   border: 1px solid rgba(0,240,255,0.06);
   pointer-events: none;
 }
-.tn-card:hover {
+.tn-card:hover, .tn-card-hover {
   border-color: var(--tn-cyan);
   /* NO transform — evita bug hit-test Chrome (transform+overflow:auto) */
   box-shadow:
@@ -198,7 +198,7 @@ html, body, #root {
   opacity: 0; transition: opacity 0.4s;
 }
 .tn-card:hover .tn-scanline,
-.tn-card-running .tn-scanline { opacity: 1; animation: tn-scan 2s linear infinite; }
+.tn-card-hover .tn-scanline { opacity: 1; animation: tn-scan 2s linear infinite; }
 @keyframes tn-scan {
   0% { background-position: 0 -100%; }
   100% { background-position: 0 100%; }
@@ -218,7 +218,7 @@ html, body, #root {
   transition: opacity 0.2s;
 }
 .tn-card:hover .tn-perimeter rect,
-.tn-card-running .tn-perimeter rect {
+.tn-card-hover .tn-perimeter rect {
   opacity: 1;
   animation: tn-perim-run 1.8s linear infinite;
 }
@@ -234,7 +234,7 @@ html, body, #root {
   flex-shrink: 0;
 }
 .tn-card:hover .tn-load-bar,
-.tn-card-running .tn-load-bar { opacity: 1; }
+.tn-card-hover .tn-load-bar { opacity: 1; }
 .tn-load-fill {
   height: 100%;
   width: 55%;          /* fixed width — sweeps as a bar, not a growing line */
@@ -244,7 +244,7 @@ html, body, #root {
 }
 /* Seamless sweep: enter left → exit right, never visibly resets */
 .tn-card:hover .tn-load-fill,
-.tn-card-running .tn-load-fill {
+.tn-card-hover .tn-load-fill {
   animation: tn-load-sweep 1.8s linear infinite;
 }
 @keyframes tn-load-sweep {
@@ -1301,7 +1301,7 @@ html, body, #root {
 
 /* Stack badge iluminado en hover de la card */
 .tn-card:hover .stack-badge,
-.tn-card-running .stack-badge {
+.tn-card-hover .stack-badge {
   opacity: 1 !important;
   box-shadow: 0 0 12px currentColor, 0 0 20px currentColor;
   filter: brightness(1.4);
@@ -1384,8 +1384,11 @@ html, body, #root {
 
 /* Pausa el glitch mientras la tarjeta está hovered → evita conflicto */
 .tn-card:hover .hex-glitching .hex-outer,
+.tn-card-hover .hex-glitching .hex-outer,
 .tn-card:hover .hex-glitching .hex-inner,
-.tn-card:hover .hex-glitching .hex-dot { animation-play-state: paused !important; }
+.tn-card-hover .hex-glitching .hex-inner,
+.tn-card:hover .hex-glitching .hex-dot,
+.tn-card-hover .hex-glitching .hex-dot { animation-play-state: paused !important; }
 
 /* Hover: glitch rápido y continuo en todas las partes */
 @keyframes hex-outer-hover {
@@ -1421,11 +1424,11 @@ html, body, #root {
   81% { opacity: 1; }
 }
 .tn-card:hover .hex-icon .hex-outer,
-.tn-card-running .hex-icon .hex-outer { animation: hex-outer-hover 0.6s steps(1, end) infinite !important; }
+.tn-card-hover .hex-icon .hex-outer { animation: hex-outer-hover 0.6s steps(1, end) infinite !important; }
 .tn-card:hover .hex-icon .hex-inner,
-.tn-card-running .hex-icon .hex-inner { animation: hex-inner-hover 0.7s steps(1, end) infinite !important; }
+.tn-card-hover .hex-icon .hex-inner { animation: hex-inner-hover 0.7s steps(1, end) infinite !important; }
 .tn-card:hover .hex-icon .hex-dot,
-.tn-card-running .hex-icon .hex-dot   { animation: hex-dot-hover   0.5s steps(1, end) infinite !important; }
+.tn-card-hover .hex-icon .hex-dot   { animation: hex-dot-hover   0.5s steps(1, end) infinite !important; }
 
 /* Click: flash completo */
 .tn-card:active .hex-icon {

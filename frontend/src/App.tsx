@@ -636,6 +636,7 @@ function RepoCard({
   activeRunKeys: Set<string>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [hovered, setHovered] = useState(false);
   // Strip ecosystem prefix for cleaner display
   const stripped = repo.name.replace(/^(idyllic|basilisk)-/, "");
   const shortName =
@@ -644,10 +645,13 @@ function RepoCard({
   const status = isRunning ? "running" : repo.status;
   const isQueued = queueIds.has(repo.id);
   const isPinned = pinnedIds.has(repo.id);
+  const showHover = hovered || isRunning;
 
   return (
     <div
-      className={`tn-card tn-boot repo-card ${isRunning ? "tn-card-running" : ""} ${isPinned ? "is-pinned" : ""} ${isQueued ? "is-queued" : ""}`}
+      className={`tn-card tn-boot repo-card ${isRunning ? "tn-card-running" : ""} ${showHover ? "tn-card-hover" : ""} ${isPinned ? "is-pinned" : ""} ${isQueued ? "is-queued" : ""}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
       {/* Static sticky header */}
       <div className="repo-card-static">
