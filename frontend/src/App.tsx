@@ -1318,21 +1318,41 @@ export default function App() {
                 const isCollapsed = collapsedCategories.has(cat.id);
                 return (
                   <div key={cat.id} className="category-section">
-                    <button
-                      className={`category-header cat-color-${color}`}
-                      onClick={() => { playClick(); toggleCategory(cat.id); }}
-                    >
-                      <Hexagon size={14} stroke="currentColor" />
-                      <span>{cat.label}</span>
-                      <div className="cat-line" />
-                      <span className="cat-badge">{passing}/{catRepos.length} PASS</span>
-                      {failing > 0 && (
-                        <span className="cat-badge" style={{ color: "var(--tn-red)", borderColor: "var(--tn-red)" }}>
-                          {failing} FAIL
-                        </span>
-                      )}
-                      <span className="cat-arrow">{isCollapsed ? "▶" : "▼"}</span>
-                    </button>
+                    <div className={`category-header cat-color-${color}`}>
+                      <button
+                        style={{ display: "flex", alignItems: "center", gap: 10, flex: 1, background: "none", border: "none", color: "inherit", cursor: "pointer", font: "inherit", letterSpacing: "inherit", padding: 0 }}
+                        onClick={() => { playClick(); toggleCategory(cat.id); }}
+                      >
+                        <Hexagon size={14} stroke="currentColor" />
+                        <span>{cat.label}</span>
+                        <div className="cat-line" />
+                        <span className="cat-badge">{passing}/{catRepos.length} PASS</span>
+                        {failing > 0 && (
+                          <span className="cat-badge" style={{ color: "var(--tn-red)", borderColor: "var(--tn-red)" }}>
+                            {failing} FAIL
+                          </span>
+                        )}
+                        <span className="cat-arrow">{isCollapsed ? "▶" : "▼"}</span>
+                      </button>
+                      <button
+                        className="cat-run-btn"
+                        disabled={isAnythingRunning}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const isBatch = catRepos.length > 1;
+                          playRun();
+                          const sem = new Semaphore(workers);
+                          const results = await Promise.all(catRepos.map(async repo => {
+                            await sem.acquire();
+                            try { return await runTarget(makeRepoTarget(repo), isBatch, true); }
+                            finally { sem.release(); }
+                          }));
+                          if (isBatch) playTestComplete(results.every(Boolean));
+                        }}
+                      >
+                        ▶ RUN_{catRepos.length}
+                      </button>
+                    </div>
                     {!isCollapsed && (
                       <div className="category-cards">
                         {catRepos.map(repo => (
