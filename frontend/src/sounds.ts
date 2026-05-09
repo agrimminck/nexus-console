@@ -55,6 +55,7 @@ function playFile(name: string, volume = 0.6): boolean {
 }
 
 // Run pool sound with interlock — skip if any run sound already playing
+// (interlock only for run-start sounds, NOT for completion sounds)
 function playPoolSound(name: string): boolean {
   if (activeSounds.size > 0) return true;
   if (!fileAvailable.get(name)) return false;
@@ -134,16 +135,16 @@ export function playBoot() {
 /** Batch test completion — pass = research-complete, fail = ghost-death */
 export function playTestComplete(allPassed: boolean) {
   if (allPassed) {
-    if (!playPoolSound("research-complete")) SYNTH.pass?.();
+    if (!playFile("research-complete")) SYNTH.pass?.();
   } else {
-    if (!playPoolSound("ghost-death")) SYNTH.fail?.();
+    if (!playFile("ghost-death")) SYNTH.fail?.();
   }
 }
 
-/** Single test result (non-batch) */
+/** Single test result (non-batch) — plays regardless of run pool interlock */
 export function playPass() {
-  if (!playPoolSound("research-complete")) SYNTH.pass?.();
+  if (!playFile("research-complete")) SYNTH.pass?.();
 }
 export function playFail() {
-  if (!playPoolSound("ghost-death")) SYNTH.fail?.();
+  if (!playFile("ghost-death")) SYNTH.fail?.();
 }

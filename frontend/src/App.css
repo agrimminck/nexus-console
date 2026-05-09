@@ -1165,9 +1165,6 @@ html, body, #root {
 .tn-card:not(:hover):not(.tn-card-running) {
   animation: card-border-breathe 2s ease-in-out infinite alternate;
 }
-.tn-card:nth-child(odd)  { animation-delay: -0.7s; }
-.tn-card:nth-child(3n)   { animation-delay: -1.4s; }
-.tn-card:nth-child(4n)   { animation-delay: -0.3s; }
 
 /* Micro-glitch (discrete, seamless por naturaleza — steps) */
 @keyframes card-micro-glitch {
@@ -1181,8 +1178,8 @@ html, body, #root {
   animation: card-border-breathe 2s ease-in-out infinite alternate,
              card-micro-glitch 13s steps(1, end) infinite;
 }
-/* Delays variados para que nunca se vean en sincronía */
-.tn-card:nth-child(1)  { animation-delay: 0s,    -0.5s; }
+/* Delays variados — breathe, glitch. nth-child(odd/3n/4n) eliminados (conflicto dual-anim) */
+.tn-card:nth-child(1)  { animation-delay: -0.4s, -0.5s; }
 .tn-card:nth-child(2)  { animation-delay: -0.7s, -5.2s; }
 .tn-card:nth-child(3)  { animation-delay: -1.4s, -9.1s; }
 .tn-card:nth-child(4)  { animation-delay: -0.3s, -3.7s; }
@@ -1194,6 +1191,19 @@ html, body, #root {
 .tn-card:nth-child(10) { animation-delay: -0.2s, -6.1s; }
 .tn-card:nth-child(11) { animation-delay: -1.3s, -2.4s; }
 .tn-card:nth-child(12) { animation-delay: -0.8s, -10.7s; }
+.tn-card:nth-child(13) { animation-delay: -1.7s, -12.3s; }
+.tn-card:nth-child(14) { animation-delay: -0.6s, -3.1s; }
+.tn-card:nth-child(15) { animation-delay: -1.2s, -6.8s; }
+.tn-card:nth-child(16) { animation-delay: -0.1s, -9.5s; }
+.tn-card:nth-child(17) { animation-delay: -1.5s, -1.3s; }
+.tn-card:nth-child(18) { animation-delay: -0.9s, -7.7s; }
+.tn-card:nth-child(19) { animation-delay: -1.9s, -4.2s; }
+.tn-card:nth-child(20) { animation-delay: -0.3s, -11.1s; }
+.tn-card:nth-child(21) { animation-delay: -1.0s, -2.8s; }
+.tn-card:nth-child(22) { animation-delay: -0.6s, -8.3s; }
+.tn-card:nth-child(23) { animation-delay: -1.7s, -5.9s; }
+.tn-card:nth-child(24) { animation-delay: -0.4s, -12.6s; }
+.tn-card:nth-child(25) { animation-delay: -1.3s, -0.7s; }
 
 /* PASS badge — alternate */
 @keyframes pass-glow-pulse {
