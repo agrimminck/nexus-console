@@ -22,6 +22,7 @@ export interface Repo {
   path: string;
   stack: Stack;
   testCount: number;
+  passedTests: number;
   status: Status;
   duration?: number;
   files: TestFile[];
