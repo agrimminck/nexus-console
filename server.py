@@ -300,6 +300,7 @@ async def ws_run(websocket: WebSocket, run_id: str) -> None:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             env={**os.environ, "FORCE_COLOR": "0", "NO_COLOR": "1"},
+            start_new_session=True,  # prevent inheriting server's listening socket
         )
 
         assert proc.stdout is not None
