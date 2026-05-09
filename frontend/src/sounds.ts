@@ -8,6 +8,7 @@ const SOUND_FILES: Record<string, string> = {
   "easy-thrusters":                "/sounds/easy-thrusters.mp3",
   "hostiles-confirmed-and-locked": "/sounds/hostiles-confirmed-and-locked.mp3",
   "checklist-protocol-initiated":  "/sounds/checklist-protocol-initiated.mp3",
+  "i-copy-that":                   "/sounds/i-copy-that.mp3",
   // UI click (buttons, tags, queue, pin)
   "starcraft-confirm":             "/sounds/starcraft-confirm.mp3",
   // Boot (page ready — pick random between the two)
@@ -16,13 +17,16 @@ const SOUND_FILES: Record<string, string> = {
   // Completion
   "research-complete":             "/sounds/research-complete.mp3",
   "ghost-death":                   "/sounds/ghost-death.mp3",
+  "marine-death":                  "/sounds/marine-death.mp3",
   // Misc UI
   tab:                             "/sounds/tab.ogg",
 };
 
 // Run pool — starcraft-confirm excluded
 const RUN_POOL  = ["locked-in", "course-laid-in", "make-it-so",
-                   "easy-thrusters", "hostiles-confirmed-and-locked", "checklist-protocol-initiated"];
+                   "easy-thrusters", "hostiles-confirmed-and-locked", "checklist-protocol-initiated",
+                   "i-copy-that"];
+const FAIL_POOL = ["ghost-death", "marine-death"];
 const BOOT_POOL = ["all-hands", "commlink-online"];
 
 const audioCache    = new Map<string, HTMLAudioElement>();
@@ -137,7 +141,7 @@ export function playTestComplete(allPassed: boolean) {
   if (allPassed) {
     if (!playFile("research-complete")) SYNTH.pass?.();
   } else {
-    if (!playFile("ghost-death")) SYNTH.fail?.();
+    if (!playFile(pickRandom(FAIL_POOL))) SYNTH.fail?.();
   }
 }
 
@@ -146,5 +150,5 @@ export function playPass() {
   if (!playFile("research-complete")) SYNTH.pass?.();
 }
 export function playFail() {
-  if (!playFile("ghost-death")) SYNTH.fail?.();
+  if (!playFile(pickRandom(FAIL_POOL))) SYNTH.fail?.();
 }
