@@ -1443,9 +1443,6 @@ export default function App() {
               {isAnythingRunning && <span className="terminal-process">PROCESS ACTIVE</span>}
             </div>
             <div className="terminal-controls">
-              <button className="btn-terminal" onClick={() => { playClick(); setTermCtrlCollapsed(v => !v); }} title="Toggle terminal controls">
-                ⚙ {termCtrlCollapsed ? "▶" : "▼"}
-              </button>
               {!termCtrlCollapsed && <>
                 <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }} title={`${termExpanded ? "Collapse" : "Expand"} terminal — hotkey: SPACE`}>
                   {termExpanded ? "⊡ COLLAPSE" : "⊞ EXPAND"}
@@ -1469,6 +1466,9 @@ export default function App() {
                   navigator.clipboard.writeText(termLines.map(l => l.text).join("\n"));
                 }}>COPY</button>
               </>}
+              <button className="btn-terminal" onClick={() => { playClick(); setTermCtrlCollapsed(v => !v); }} title="Toggle terminal controls">
+                ⚙ {termCtrlCollapsed ? "▶" : "▼"}
+              </button>
             </div>
           </div>
           <div className="terminal-output" ref={termRef}>
