@@ -641,7 +641,7 @@ function RepoCard({
   const stripped = repo.name.replace(/^(idyllic|basilisk)-/, "");
   const shortName =
     stripped.length > 26 ? stripped.slice(0, 23) + "…" : stripped;
-  const isRunning = activeRunKeys.has(repo.id);
+  const isRunning = repo.status === "running" || [...activeRunKeys].some(k => k.startsWith(`${repo.id}|`));
   const status = isRunning ? "running" : repo.status;
   const isQueued = queueIds.has(repo.id);
   const isPinned = pinnedIds.has(repo.id);
