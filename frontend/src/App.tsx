@@ -43,9 +43,9 @@ function Hexagon({ size = 20, stroke = "var(--tn-cyan)", seed = 0 }: {
     let alive = true;
 
     const scheduleNext = () => {
-      const base = Math.random() * 50000;
+      const base = 20000 + Math.random() * 30000;
       const jitter = (Math.random() - 0.5) * 40000;
-      const next = Math.max(5000, base + jitter);
+      const next = Math.max(0, base + jitter);
 
       const t1 = setTimeout(() => {
         if (!alive) return;
