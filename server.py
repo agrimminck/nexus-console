@@ -214,6 +214,17 @@ async def list_docker_files() -> JSONResponse:
     return JSONResponse(sorted(set(files)))
 
 
+RESET_SEED_SCRIPT = REPOS_ROOT / "idyllic-infra" / "scripts" / "reset-and-seed-all-dbs.py"
+
+@app.post("/api/reset-seed")
+async def reset_seed() -> JSONResponse:
+    run_id = str(uuid.uuid4())
+    cmd = ["python3", str(RESET_SEED_SCRIPT)]
+    cwd = str(RESET_SEED_SCRIPT.parent)
+    _runs[run_id] = {"cmd": cmd, "cwd": cwd, "label": "reset-and-seed-all-dbs", "status": "pending"}
+    return JSONResponse({"run_id": run_id, "cmd": cmd})
+
+
 class ConfigUpdate(BaseModel):
     tags: dict[str, list[str]] | None = None
     pinned: list[str] | None = None

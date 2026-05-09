@@ -1436,13 +1436,36 @@ export default function App() {
         {/* Terminal */}
         {/* Docker quick buttons */}
         <div className="docker-bar" style={{ flexShrink: 0, padding: "6px 16px", borderTop: "1px solid rgba(0,240,255,0.08)", background: "rgba(0,3,8,0.9)", display: "flex", gap: 8, alignItems: "center" }}>
-          <button className="btn-terminal" onClick={() => { playClick(); setDockerCollapsed(v => !v); }} title="Toggle docker buttons">
-            DOCKER {dockerCollapsed ? "▶" : "▼"}
+          <button className="btn-terminal" onClick={() => { playClick(); setDockerCollapsed(v => !v); }} title="Toggle actions">
+            ACTIONS {dockerCollapsed ? "▶" : "▼"}
           </button>
           {!dockerCollapsed && <>
             <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "up", "dev"); }}>▶ UP DEV</button>
             <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "down", "dev"); }}>■ DOWN DEV</button>
             <button className="btn-terminal" onClick={() => { playClick(); runDocker(DEV_COMPOSE, "ps", "dev"); }}>≡ PS</button>
+            <button className="btn-terminal" onClick={() => {
+              playRun();
+              fetch("/api/reset-seed", { method: "POST" })
+                .then(r => r.json())
+                .then(({ run_id, cmd }) => {
+                  appendLine(`> RESET-AND-SEED ALL DBS`, "info");
+                  appendLine(`> CMD: ${cmd.join(" ")}`, "meta");
+                  const proto = location.protocol === "https:" ? "wss" : "ws";
+                  const ws = new WebSocket(`${proto}://${location.host}/ws/${run_id}`);
+                  ws.onmessage = (e) => {
+                    const msg = JSON.parse(e.data);
+                    if (msg.type === "line") appendLine(msg.text, "raw");
+                    else if (msg.type === "done") {
+                      const ok = msg.exit_code === 0;
+                      appendLine(`> SEED ${ok ? "✓ DONE" : "✗ FAILED"} — exit ${msg.exit_code}`, ok ? "pass" : "fail");
+                      if (ok) playPass(); else playFail();
+                      ws.close();
+                    }
+                  };
+                  ws.onerror = () => ws.close();
+                })
+                .catch(err => appendLine(`> SEED ERROR: ${err.message}`, "fail"));
+            }}>⟳ RESET+SEED</button>
           </>}
         </div>
 
@@ -1470,7 +1493,7 @@ export default function App() {
             <div className="terminal-controls">
               {!termCtrlCollapsed && <>
                 <button className="btn-terminal" onClick={() => { playClick(); setTermExpanded(v => !v); }} title={`${termExpanded ? "Collapse" : "Expand"} terminal — hotkey: SPACE`}>
-                  {termExpanded ? "⊡ COLLAPSE" : "⊞ EXPAND"}
+                  {termExpanded ? "COLLAPSE" : "EXPAND"}
                 </button>
                 <button className="btn-terminal" onClick={() => {
                   playClick();
@@ -1492,7 +1515,7 @@ export default function App() {
                 }}>COPY</button>
               </>}
               <button className="btn-terminal" onClick={() => { playClick(); setTermCtrlCollapsed(v => !v); }} title="Toggle terminal controls">
-                ⚙ {termCtrlCollapsed ? "▶" : "▼"}
+                {termCtrlCollapsed ? "▶" : "▼"}
               </button>
             </div>
           </div>
