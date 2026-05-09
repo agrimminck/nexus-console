@@ -676,17 +676,25 @@ export default function App() {
       });
   }, []);
 
-  // ── Space = cycle terminal size ──
+  // ── Space / Shift+Alt = terminal resize ──
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !(e.target instanceof HTMLInputElement) && !(e.target instanceof HTMLTextAreaElement)) {
+      const inInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      if (inInput) return;
+
+      // Shift+Alt: step up 0→1→2 (stops at max)
+      if ((e.shiftKey && e.altKey) && e.code !== "Space") {
         e.preventDefault();
         playClick();
-        if (e.ctrlKey) {
-          setTermLevel(v => Math.max(0, v - 1));
-        } else {
-          setTermLevel(v => (v + 1) % 3);
-        }
+        setTermLevel(v => Math.min(2, v + 1));
+        return;
+      }
+
+      // Space alone: toggle max↔min; if mid → jump to max
+      if (e.code === "Space" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        playClick();
+        setTermLevel(v => v === 2 ? 0 : 2);
       }
     };
     window.addEventListener("keydown", onKey);
