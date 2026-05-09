@@ -85,8 +85,8 @@ def _build_cmd(repo_id: str, file_id: str | None, test_id: str | None, stack: st
         return cmd
     if stack == "pytest":
         cmd = [sys.executable, "-m", "pytest", "-v", "--tb=short"]
-        if test_id:
-            cmd.append(test_id)
+        if file_id and test_id:
+            cmd.append(f"{file_id}::{test_id}")
         elif file_id:
             cmd.append(file_id)
         return cmd
