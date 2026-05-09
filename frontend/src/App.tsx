@@ -1183,20 +1183,10 @@ export default function App() {
               </button>
             </div>
 
-            {/* Options toggle */}
-            <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.08)" }}>
-              <span className="workers-label">OPTIONS</span>
-              <button
-                className="fx-toggle-btn"
-                onClick={() => { playClick(); setSidebarOptionsCollapsed(v => !v); }}
-              >
-                {sidebarOptionsCollapsed ? "▶ SHOW" : "▼ HIDE"}
-              </button>
-            </div>
-
+            {/* Options content — above toggle so button stays fixed at bottom */}
             {!sidebarOptionsCollapsed && <>
               {/* Workers row */}
-              <div className="workers-row">
+              <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.08)" }}>
                 <span className="workers-label">WORKERS</span>
                 <div className="workers-control">
                   <button className="btn-worker" onClick={() => { playClick(); setWorkers(w => Math.max(1, w - 1)); }} disabled={workers <= 1}>−</button>
@@ -1218,7 +1208,6 @@ export default function App() {
                   </button>
                 </div>
               ))}
-
               {/* Toast animation mode */}
               <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.06)" }}>
                 <span className="workers-label">TOAST_FX</span>
@@ -1245,6 +1234,17 @@ export default function App() {
                 </div>
               </div>
             </>}
+
+            {/* Options toggle — always at bottom */}
+            <div className="workers-row" style={{ borderTop: "1px solid rgba(0,240,255,0.08)" }}>
+              <span className="workers-label">OPTIONS</span>
+              <button
+                className="fx-toggle-btn"
+                onClick={() => { playClick(); setSidebarOptionsCollapsed(v => !v); }}
+              >
+                {sidebarOptionsCollapsed ? "▶ SHOW" : "▲ HIDE"}
+              </button>
+            </div>
           </aside>
 
           {/* Main Panel */}
