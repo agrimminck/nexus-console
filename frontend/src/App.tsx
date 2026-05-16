@@ -285,7 +285,7 @@ function StatusBadge({ status }: { status: Status }) {
   const cfg: Record<Status, { label: string; cls: string }> = {
     pass: { label: "PASS", cls: "status-badge status-pass" },
     fail: { label: "FAIL", cls: "status-badge status-fail" },
-    pending: { label: "IDLE", cls: "status-badge status-pending" },
+    pending: { label: "PENDING", cls: "status-badge status-pending" },
     running: { label: "RUNNING", cls: "status-badge status-running" },
     skip: { label: "SKIP", cls: "status-badge status-skip" },
   };
@@ -472,7 +472,20 @@ function TestRow({
   return (
     <div className="test-row">
       <StatusDot status={isRunning ? "running" : test.status} />
-      <span className="test-name" title={test.name}>
+      <span
+        className="test-name"
+        title={test.name}
+        style={{
+          color:
+            test.status === "pass"
+              ? "var(--tn-green)"
+              : test.status === "fail"
+              ? "var(--tn-red)"
+              : test.status === "pending"
+              ? "var(--tn-cyan)"
+              : undefined,
+        }}
+      >
         {test.name}
       </span>
       {test.duration !== undefined && (
@@ -534,9 +547,23 @@ function FileRow({
   const [open, setOpen] = useState(false);
   const fname = file.path.split("/").pop() ?? file.path;
   const isFileRunning = activeRunKeys.has(file.id);
+  const filePassed = file.tests.filter((t) => t.status === "pass").length;
+  const filePassColor =
+    file.testCount === 0
+      ? "var(--tn-text-dim)"
+      : filePassed === file.testCount
+      ? "var(--tn-green)"
+      : filePassed / file.testCount >= 0.5
+      ? "var(--tn-orange)"
+      : "var(--tn-red)";
+  const canExpand = file.tests.length > 0;
   return (
     <div>
-      <div className="file-row">
+      <div
+        className="file-row"
+        onClick={canExpand ? () => setOpen((o) => !o) : undefined}
+        style={canExpand ? { cursor: "pointer" } : undefined}
+      >
         <StatusDot status={isFileRunning ? "running" : file.status} />
         <span className="file-name" title={file.path}>
           {fname}
@@ -545,12 +572,12 @@ function FileRow({
           style={{
             fontFamily: "var(--font-mono)",
             fontSize: 8,
-            color: "var(--tn-text-dim)",
+            color: filePassColor,
           }}
         >
-          {file.testCount}
+          {filePassed}/{file.testCount}
         </span>
-        <div className="file-actions">
+        <div className="file-actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="btn-micro"
             onClick={onRunFile}
@@ -573,10 +600,10 @@ function FileRow({
           >
             ★
           </button>
-          {file.tests.length > 0 && (
+          {canExpand && (
             <button
               className="btn-micro"
-              onClick={() => setOpen((o) => !o)}
+              onClick={(e) => { e.stopPropagation(); setOpen((o) => !o); }}
               title="Expand"
             >
               {open ? "▲" : "▼"}
@@ -654,7 +681,7 @@ function RepoCard({
       onMouseLeave={() => setHovered(false)}
     >
       {/* Static sticky header */}
-      <div className="repo-card-static">
+      <div className="repo-card-static" onClick={() => setExpanded((o) => !o)} style={{ cursor: "pointer" }}>
         <CornerBracket corner="tl" />
         <CornerBracket corner="tr" />
         <svg
@@ -727,7 +754,7 @@ function RepoCard({
           }
         />
 
-        <div className="repo-card-actions">
+        <div className="repo-card-actions" onClick={(e) => e.stopPropagation()}>
           <button
             className="btn-run"
             onClick={(e) => {
@@ -762,7 +789,7 @@ function RepoCard({
 
         <button
           className="expand-toggle"
-          onClick={() => setExpanded((o) => !o)}
+          onClick={(e) => { e.stopPropagation(); setExpanded((o) => !o); }}
         >
           <span>
             ▼ {repo.files.length}_FILES // {repo.passedTests ?? 0}/{repo.testCount}_TESTS
@@ -909,15 +936,11 @@ function getCategory(repo: Repo): Category {
   return "unit";
 }
 
-function catColor(repos: Repo[]): "green" | "yellow" | "red" {
-  const done = repos.filter(
-    (r) => r.status !== "pending" && r.status !== "running",
-  );
-  if (done.length === 0) return "yellow";
-  const passing = done.filter((r) => r.status === "pass").length;
-  if (passing === done.length) return "green";
-  if (passing === 0) return "red";
-  return "yellow";
+function catColor(passed: number, total: number): "green" | "yellow" | "red" {
+  if (total === 0) return "yellow";
+  if (passed === total) return "green";
+  if (passed / total >= 0.5) return "yellow";
+  return "red";
 }
 
 // ─── Loading screen ───────────────────────────────────────────────────────────
@@ -972,6 +995,7 @@ function LoadingScreen() {
 
 export default function App() {
   const [repos, setRepos] = useState<Repo[]>([]);
+  const reposRef = useRef<Repo[]>([]);
   const [loading, setLoading] = useState(true);
   const [allTags, setAllTags] = useState<string[]>([]);
   const [search, setSearch] = useState("");
@@ -1038,6 +1062,9 @@ export default function App() {
       return new Set();
     }
   });
+
+  // Keep reposRef in sync for access inside async callbacks
+  useEffect(() => { reposRef.current = repos; }, [repos]);
 
   // Active runs (concurrent)
   const activeRunKeysRef = useRef<Set<string>>(new Set());
@@ -1108,29 +1135,46 @@ export default function App() {
 
   // ── Fetch repos ──
   useEffect(() => {
-    fetch("/api/repos")
-      .then((r) => r.json())
-      .then((data: Repo[]) => {
+    Promise.all([
+      fetch("/api/repos").then((r) => r.json()),
+      fetch("/api/test-results").then((r) => r.json()).catch(() => []),
+    ])
+      .then(([data, testResults]: [Repo[], Array<{ repo_id: string; test_id: string; status: string; duration_ms?: number }>]) => {
         const userTags = Array.from(new Set(data.flatMap((r) => r.tags ?? [])));
         const stackTags = Array.from(new Set(data.map((r) => r.stack)));
         setAllTags([...new Set([...stackTags, ...userTags])]);
         setLoading(false);
         playBoot();
         appendLine(`> DISCOVERY COMPLETE — ${data.length} REPOS FOUND`, "pass");
-        // Restore saved results into repos
-        const savedResults: Array<{
-          repoId: string;
-          status: Status;
-          duration?: number;
-          passedTests?: number;
-        }> = JSON.parse(localStorage.getItem("ntd_results") ?? "[]");
-        const resultMap = new Map(savedResults.map((r) => [r.repoId, r]));
+
+        // Build map: repo_id → Map<test_id, {status, duration_ms}>
+        const testMap = new Map<string, Map<string, { status: Status; duration_ms?: number }>>();
+        for (const r of (Array.isArray(testResults) ? testResults : [])) {
+          if (!testMap.has(r.repo_id)) testMap.set(r.repo_id, new Map());
+          testMap.get(r.repo_id)!.set(r.test_id, { status: r.status as Status, duration_ms: r.duration_ms });
+        }
+
         setRepos(
-          data.map((r) => {
-            const saved = resultMap.get(r.id);
-            return saved
-              ? { ...r, status: saved.status, duration: saved.duration, passedTests: saved.passedTests ?? 0 }
-              : { ...r, passedTests: 0 };
+          data.map((repo) => {
+            const repoTests = testMap.get(repo.id);
+            if (!repoTests) return { ...repo, passedTests: 0 };
+            const mergedFiles = repo.files.map((f) => ({
+              ...f,
+              tests: f.tests.map((t) => {
+                const saved = repoTests.get(t.id);
+                return saved ? { ...t, status: saved.status, duration: saved.duration_ms } : t;
+              }),
+            }));
+            const allTests = mergedFiles.flatMap((f) => f.tests);
+            const passedTests = allTests.filter((t) => t.status === "pass").length;
+            const anyFail = allTests.some((t) => t.status === "fail");
+            const repoStatus: Status =
+              passedTests === repo.testCount && repo.testCount > 0
+                ? "pass"
+                : anyFail
+                ? "fail"
+                : "pending";
+            return { ...repo, files: mergedFiles, passedTests, status: repoStatus };
           }),
         );
       })
@@ -1360,6 +1404,8 @@ export default function App() {
 
       let exitCode = 1;
       let durStr = "0";
+      // test name → status parsed from output lines
+      const parsedTestResults = new Map<string, "pass" | "fail">();
 
       try {
         const res = await fetch("/api/run", {
@@ -1380,6 +1426,17 @@ export default function App() {
             const msg = JSON.parse(e.data);
             if (msg.type === "line") {
               const text: string = msg.text;
+              // Parse pytest: "::test_fn_name PASSED/FAILED/ERROR"
+              const pytestMatch = text.match(/::(\w+)\s+(PASSED|FAILED|ERROR)/);
+              if (pytestMatch) {
+                parsedTestResults.set(pytestMatch[1], pytestMatch[2] === "PASSED" ? "pass" : "fail");
+              }
+              // Parse jest/vitest verbose: "  ✓ test name" or "  ✕/×/● test name"
+              const jestPass = text.match(/^\s+(?:✓|√|PASS)\s+(.+?)(?:\s+\(\d+\s*ms\))?$/);
+              const jestFail = text.match(/^\s+(?:✕|×|✗|✘|FAIL|●)\s+(.+?)(?:\s+\(\d+\s*ms\))?$/);
+              if (jestPass) parsedTestResults.set(jestPass[1].trim(), "pass");
+              if (jestFail) parsedTestResults.set(jestFail[1].trim(), "fail");
+
               const lineType: TerminalLine["type"] = /✓|PASS|passed/.test(text)
                 ? "pass"
                 : /✗|FAIL|failed|ERROR/.test(text)
@@ -1425,31 +1482,64 @@ export default function App() {
                       : !target.test_id ? "file"
                       : "test";
 
+        // Collect individual test results to persist before state update
+        const testResultsToSave: Array<{ id: string; repo_id: string; test_id: string; status: string; duration_ms?: number }> = [];
+        const currentRepo = reposRef.current.find((r) => r.id === target.repo_id);
+        if (currentRepo) {
+          for (const f of currentRepo.files) {
+            const fileMatches = runType === "full" || (f.path === target.file_id || f.id === target.file_id);
+            if (!fileMatches) continue;
+            for (const t of f.tests) {
+              if (runType === "test" && t.name !== target.test_id) continue;
+              const parsed = parsedTestResults.get(t.name);
+              const s = parsed ?? (ok ? "pass" : "fail");
+              testResultsToSave.push({
+                id: `${target.repo_id}::${t.id}`,
+                repo_id: target.repo_id,
+                test_id: t.id,
+                status: s,
+              });
+            }
+          }
+        }
+        if (testResultsToSave.length > 0) {
+          fetch("/api/test-results", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(testResultsToSave),
+          }).catch(() => {});
+        }
+
         setRepos((prev) => {
           const updated = prev.map((r) => {
             if (r.id !== target.repo_id) return r;
-            const cur = r.passedTests ?? 0;
-            let passedTests = cur;
-            let nextStatus: Status = r.status;
 
-            if (ok) {
-              if (runType === "full") {
-                passedTests = r.testCount;
-                nextStatus = "pass";
-              } else if (runType === "file") {
-                const f = r.files.find(f => f.path === target.file_id || f.id === target.file_id);
-                passedTests = Math.min(r.testCount, cur + (f?.testCount ?? 1));
-                nextStatus = passedTests >= r.testCount && r.testCount > 0 ? "pass" : r.status;
-              } else {
-                passedTests = Math.min(r.testCount, cur + 1);
-                nextStatus = passedTests >= r.testCount && r.testCount > 0 ? "pass" : r.status;
-              }
-            } else {
-              nextStatus = "fail";
-              if (runType === "full") passedTests = 0;
-            }
+            // Update individual test statuses using parsed output when available
+            const updatedFiles = r.files.map((f) => {
+              const fileMatches = runType === "full" || (f.path === target.file_id || f.id === target.file_id);
+              if (!fileMatches) return f;
+              const updatedTests = f.tests.map((t) => {
+                if (runType === "test" && t.name !== target.test_id) return t;
+                // Prefer parsed output result; fall back to exit-code-based status
+                const parsed = parsedTestResults.get(t.name);
+                const s: Status = parsed ?? (ok ? "pass" : "fail");
+                return { ...t, status: s };
+              });
+              return { ...f, tests: updatedTests };
+            });
 
-            return { ...r, status: nextStatus, passedTests, duration: parseFloat(durStr) };
+            // Recompute passedTests from actual test statuses
+            const allTests = updatedFiles.flatMap((f) => f.tests);
+            const passedTests = allTests.filter((t) => t.status === "pass").length;
+            const anyFail = allTests.some((t) => t.status === "fail");
+            const nextStatus: Status =
+              passedTests === r.testCount && r.testCount > 0
+                ? "pass"
+                : anyFail
+                ? "fail"
+                : r.status;
+
+            return { ...r, files: updatedFiles, status: nextStatus, passedTests, duration: parseFloat(durStr) };
           });
           const results = updated
             .filter((r) => r.status !== "pending")
@@ -2275,13 +2365,15 @@ export default function App() {
                     (r) => getCategory(r) === cat.id,
                   );
                   if (catRepos.length === 0) return null;
+                  const catTotal = catRepos.reduce((s, r) => s + r.testCount, 0);
+                  const catPassed = catRepos.reduce((s, r) => s + (r.passedTests ?? 0), 0);
                   const passing = catRepos.filter(
                     (r) => r.status === "pass",
                   ).length;
                   const failing = catRepos.filter(
                     (r) => r.status === "fail",
                   ).length;
-                  const color = catColor(catRepos);
+                  const color = catColor(catPassed, catTotal);
                   const isCollapsed = collapsedCategories.has(cat.id);
                   return (
                     <div key={cat.id} className="category-section">
@@ -2626,10 +2718,71 @@ export default function App() {
                     onClick={() => {
                       playClick();
                       setLoading(true);
-                      fetch("/api/repos")
-                        .then((r) => r.json())
-                        .then((data: Repo[]) => {
-                          setRepos(data);
+                      Promise.all([
+                        fetch("/api/repos").then((r) => r.json()),
+                        fetch("/api/test-results").then((r) => r.json()).catch(() => []),
+                      ]).then(([data, testResults]: [Repo[], Array<{ repo_id: string; test_id: string; status: string; duration_ms?: number }>]) => {
+                          // Build backend test map
+                          const testMap = new Map<string, Map<string, { status: Status; duration_ms?: number }>>();
+                          for (const r of (Array.isArray(testResults) ? testResults : [])) {
+                            if (!testMap.has(r.repo_id)) testMap.set(r.repo_id, new Map());
+                            testMap.get(r.repo_id)!.set(r.test_id, { status: r.status as Status, duration_ms: r.duration_ms });
+                          }
+                          setRepos((prev) => {
+                            const prevRepoMap = new Map(prev.map((r) => [r.id, r]));
+                            return data.map((fresh) => {
+                              const old = prevRepoMap.get(fresh.id);
+                              const repoTests = testMap.get(fresh.id);
+                              const mergedFiles = fresh.files.map((ff) => {
+                                const prevTestMap = old ? new Map(old.files.find(f => f.id === ff.id)?.tests.map((t) => [t.id, t]) ?? []) : new Map<string, IndividualTest>();
+                                const mergedTests = ff.tests.map((ft) => {
+                                  // In-memory state takes precedence over backend (most recent run)
+                                  const inMem = prevTestMap.get(ft.id);
+                                  if (inMem && inMem.status !== "pending") return { ...ft, status: inMem.status, duration: inMem.duration };
+                                  const fromDB = repoTests?.get(ft.id);
+                                  return fromDB ? { ...ft, status: fromDB.status, duration: fromDB.duration_ms } : ft;
+                                });
+                                const fileHasUnpassed = mergedTests.some((t) => t.status !== "pass");
+                                const ofStatus = old?.files.find(f => f.id === ff.id)?.status ?? "pending";
+                                return {
+                                  ...ff,
+                                  status: ofStatus === "pass" && fileHasUnpassed ? "pending" : ofStatus,
+                                  tests: mergedTests,
+                                };
+                              });
+                              const allTests = mergedFiles.flatMap((f) => f.tests);
+                              const passedTests = allTests.filter((t) => t.status === "pass").length;
+                              const anyFail = allTests.some((t) => t.status === "fail");
+                              const repoStatus: Status =
+                                passedTests === fresh.testCount && fresh.testCount > 0
+                                  ? "pass"
+                                  : anyFail
+                                  ? "fail"
+                                  : old?.status ?? "pending";
+                              return {
+                                ...fresh,
+                                status: repoStatus,
+                                passedTests,
+                                duration: old?.duration,
+                                files: mergedFiles,
+                              };
+                            });
+                          });
+                          const validIds = new Set<string>();
+                          for (const repo of data) {
+                            validIds.add(repo.id);
+                            for (const file of repo.files ?? []) {
+                              validIds.add(file.id);
+                              for (const test of file.tests ?? []) {
+                                validIds.add(test.id);
+                                validIds.add(test.name); // pinned/queue test items use t.name as ID
+                              }
+                            }
+                          }
+                          setPinnedItems((prev) => prev.filter((p) => validIds.has(p.id)));
+                          setPinnedIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
+                          setQueueItems((prev) => prev.filter((q) => validIds.has(q.id)));
+                          setQueueIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
                           setAllTags((prev) => {
                             const fresh = Array.from(
                               new Set(data.flatMap((r) => r.tags ?? [])),

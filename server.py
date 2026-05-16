@@ -23,6 +23,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+import psycopg2
+import psycopg2.extras
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -39,9 +41,56 @@ REPOS_ROOT = Path("/home/agrim/github/idyllic/repos")
 CONFIG_PATH = Path(__file__).parent / "test-config.json"
 STATIC_DIR = Path(__file__).parent / "static"
 
+NEON_ENV_PATH = Path("/home/agrim/github/idyllic/repos/basilisk-infra/.env")
+NEON_HOST = "ep-muddy-forest-acsgvbxh.sa-east-1.aws.neon.tech"
+NEON_DB = "neondb"
+NEON_USER = "neondb_owner"
+NEON_SCHEMA = "nexus_console"
+
+
+def _neon_password() -> str:
+    try:
+        for line in NEON_ENV_PATH.read_text().splitlines():
+            if line.startswith("NEON_PASSWORD="):
+                return line.split("=", 1)[1].strip()
+    except Exception:
+        pass
+    return ""
+
+
+def _db_conn():
+    return psycopg2.connect(
+        host=NEON_HOST,
+        dbname=NEON_DB,
+        user=NEON_USER,
+        password=_neon_password(),
+        sslmode="require",
+        options=f"-c search_path={NEON_SCHEMA}",
+    )
+
+
+def _db_init() -> None:
+    try:
+        with _db_conn() as conn:
+            with conn.cursor() as cur:
+                cur.execute(f"""
+                    CREATE TABLE IF NOT EXISTS {NEON_SCHEMA}.test_results (
+                        id TEXT PRIMARY KEY,
+                        repo_id TEXT NOT NULL,
+                        test_id TEXT NOT NULL,
+                        status TEXT NOT NULL,
+                        duration_ms REAL,
+                        updated_at TIMESTAMPTZ DEFAULT now()
+                    )
+                """)
+            conn.commit()
+    except Exception as exc:
+        print(f"[neon] init failed (non-fatal): {exc}")
+
 # ─── FastAPI app ──────────────────────────────────────────────────────────────
 
 app = FastAPI(title="NEXUS_TEST_GRID", version="0.1.0")
+_db_init()
 
 app.add_middleware(
     CORSMiddleware,
@@ -248,6 +297,51 @@ async def update_config(body: ConfigUpdate) -> JSONResponse:
         cfg["pinned"] = body.pinned
     _save_config(cfg)
     return JSONResponse({"ok": True})
+
+
+class TestResultItem(BaseModel):
+    id: str
+    repo_id: str
+    test_id: str
+    status: str
+    duration_ms: float | None = None
+
+
+@app.get("/api/test-results")
+def get_test_results() -> JSONResponse:
+    try:
+        with _db_conn() as conn:
+            with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("SELECT id, repo_id, test_id, status, duration_ms FROM test_results")
+                rows = [dict(r) for r in cur.fetchall()]
+        return JSONResponse(rows)
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
+
+
+@app.post("/api/test-results")
+def upsert_test_results(body: list[TestResultItem]) -> JSONResponse:
+    if not body:
+        return JSONResponse({"ok": True, "count": 0})
+    try:
+        with _db_conn() as conn:
+            with conn.cursor() as cur:
+                psycopg2.extras.execute_values(
+                    cur,
+                    f"""
+                    INSERT INTO {NEON_SCHEMA}.test_results (id, repo_id, test_id, status, duration_ms, updated_at)
+                    VALUES %s
+                    ON CONFLICT (id) DO UPDATE SET
+                        status = EXCLUDED.status,
+                        duration_ms = EXCLUDED.duration_ms,
+                        updated_at = now()
+                    """,
+                    [(r.id, r.repo_id, r.test_id, r.status, r.duration_ms) for r in body],
+                )
+            conn.commit()
+        return JSONResponse({"ok": True, "count": len(body)})
+    except Exception as exc:
+        return JSONResponse({"error": str(exc)}, status_code=500)
 
 
 class RunRequest(BaseModel):
