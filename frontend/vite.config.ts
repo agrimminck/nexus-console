@@ -13,4 +13,8 @@ export default defineConfig({
     outDir: "../static",
     emptyOutDir: true,
   },
+  test: {
+    environment: "happy-dom",
+    include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
+  },
 });

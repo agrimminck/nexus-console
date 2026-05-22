@@ -1545,6 +1545,11 @@ html, body, #root {
 .fx-toggle-btn.on { border-color: var(--tn-cyan); color: var(--tn-cyan); background: rgba(0,240,255,0.08); }
 .fx-toggle-btn:hover { border-color: var(--tn-cyan); color: var(--tn-cyan); }
 
+.fx-master-row { border-top: 1px solid rgba(0,240,255,0.18) !important; background: rgba(0,240,255,0.03); }
+.fx-master-btn { font-size: 9px; padding: 4px 10px; }
+.fx-master-btn:not(.on) { border-color: rgba(255,61,90,0.5); color: var(--tn-red); background: rgba(255,61,90,0.06); }
+.fx-master-btn:not(.on):hover { border-color: var(--tn-red); color: var(--tn-red); }
+
 /* Global FX disable class on root */
 .no-fx .tn-card:not(:hover):not(.tn-card-running),
 .no-fx .status-badge,

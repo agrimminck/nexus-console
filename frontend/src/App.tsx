@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import MatrixRain from "./MatrixRain";
 import CursorFX from "./CursorFX";
+import { isAllFxOff, setAllFx, FX_KEYS } from "./fxUtils";
 import {
   playClick,
   playRun,
@@ -1086,16 +1087,16 @@ export default function App() {
 
   // FX toggles
   const [fxEnabled, setFxEnabled] = useState(
-    () => localStorage.getItem("ntd_fx") !== "off",
+    () => localStorage.getItem(FX_KEYS.fx) !== "off",
   );
   const [matrixEnabled, setMatrixEnabled] = useState(
-    () => localStorage.getItem("ntd_matrix") !== "off",
+    () => localStorage.getItem(FX_KEYS.matrix) !== "off",
   );
   const [cursorFxEnabled, setCursorFxEnabled] = useState(
-    () => localStorage.getItem("ntd_cursorfx") !== "off",
+    () => localStorage.getItem(FX_KEYS.cursorfx) !== "off",
   );
   const [soundEnabled, setSoundEnabled] = useState(
-    () => localStorage.getItem("ntd_sound") !== "off",
+    () => localStorage.getItem(FX_KEYS.sound) !== "off",
   );
 
   // Wrap playClick to respect sound toggle
@@ -2059,6 +2060,29 @@ export default function App() {
                     </button>
                   </div>
                 </div>
+                {/* FX master kill switch */}
+                {(() => {
+                  const allOff = isAllFxOff(fxEnabled, matrixEnabled, cursorFxEnabled, soundEnabled);
+                  return (
+                    <div className="fx-toggle-row fx-master-row">
+                      <span className="fx-toggle-label">ALL_FX</span>
+                      <button
+                        className={`fx-toggle-btn fx-master-btn ${allOff ? "" : "on"}`}
+                        onClick={() => {
+                          playClickIfEnabled();
+                          const next = allOff;
+                          setAllFx(next);
+                          setFxEnabled(next);
+                          setMatrixEnabled(next);
+                          setCursorFxEnabled(next);
+                          setSoundEnabled(next);
+                        }}
+                      >
+                        {allOff ? "OFF" : "ON"}
+                      </button>
+                    </div>
+                  );
+                })()}
                 {/* FX toggles */}
                 {(
                   [
@@ -2067,7 +2091,7 @@ export default function App() {
                       fxEnabled,
                       () => {
                         setFxEnabled((v) => {
-                          localStorage.setItem("ntd_fx", !v ? "on" : "off");
+                          localStorage.setItem(FX_KEYS.fx, !v ? "on" : "off");
                           return !v;
                         });
                       },
@@ -2077,7 +2101,7 @@ export default function App() {
                       matrixEnabled,
                       () => {
                         setMatrixEnabled((v) => {
-                          localStorage.setItem("ntd_matrix", !v ? "on" : "off");
+                          localStorage.setItem(FX_KEYS.matrix, !v ? "on" : "off");
                           return !v;
                         });
                       },
@@ -2087,10 +2111,7 @@ export default function App() {
                       cursorFxEnabled,
                       () => {
                         setCursorFxEnabled((v) => {
-                          localStorage.setItem(
-                            "ntd_cursorfx",
-                            !v ? "on" : "off",
-                          );
+                          localStorage.setItem(FX_KEYS.cursorfx, !v ? "on" : "off");
                           return !v;
                         });
                       },
@@ -2100,7 +2121,7 @@ export default function App() {
                       soundEnabled,
                       () => {
                         setSoundEnabled((v) => {
-                          localStorage.setItem("ntd_sound", !v ? "on" : "off");
+                          localStorage.setItem(FX_KEYS.sound, !v ? "on" : "off");
                           return !v;
                         });
                       },
